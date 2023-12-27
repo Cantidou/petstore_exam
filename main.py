@@ -10,6 +10,7 @@ class TestAPI:
             assert pet.status_code == 400
         else:
             assert pet.status_code == 200
+
     @pytest.mark.parametrize("pet_data", [({
             "id": 0,
             "category": {
@@ -35,6 +36,7 @@ class TestAPI:
             assert pet.status_code == 405
         else:
             assert pet.status_code == 200
+
     @pytest.mark.parametrize("status, method", [("sold", "put"), ("lost", "put")])
     def test_change_pet(self, status, method):
         data = {
@@ -71,3 +73,23 @@ class TestAPI:
             assert pet.status_code == 400
         else:
             assert pet.status_code == 404
+
+    @pytest.mark.parametrize("status", [("sold"), ("lost")])
+    def test_find_by_status(self, status):
+        pet = requests.get(f"https://petstore.swagger.io/v2/pet/findByStatus?status={status}")
+        if status == "sold" or status == "pending" or status == "available":
+            assert pet.status_code == 200
+        else:
+            assert pet.status_code == 400
+
+    @pytest.mark.parametrize("id", [(3), ("f")])
+    def test_delete_pet(self, id):
+        print(type(id))
+        if type(id) != int:
+            pet = requests.delete(f"https://petstore.swagger.io/v2/pet/{id}")
+            assert pet.status_code == 400
+
+        pet = requests.delete(f"https://petstore.swagger.io/v2/pet/{id}")
+        assert pet.status_code == 200
+        pet = requests.delete(f"https://petstore.swagger.io/v2/pet/{id}")
+        assert pet.status_code == 404
