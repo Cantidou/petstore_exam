@@ -30,5 +30,3 @@ def validate_status(status):
             return True
         case _:
             raise ValidationError("Invalid status")
-
-

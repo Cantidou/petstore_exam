@@ -1,6 +1,23 @@
 import pytest
 import requests
 import allure
+from pydantic import BaseModel, field_validator
+
+
+class Status(BaseModel):
+    id: int
+    category: dict
+    name: str
+    photoUrls: list
+    tags: list
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def check_status(cls, value) -> str:
+        if value in ["available", "pending", "sold"]:
+            return value
+        raise ValueError(f"Value {value} is not valid")
 
 
 class TestAPI:
@@ -34,7 +51,6 @@ class TestAPI:
     @pytest.mark.parametrize("pet_data", [test_data, {}, None])
     def test_post_pet(self, pet_data):
         pet = requests.post(self.url + "/pet", json=pet_data)
-        print(pet_data)
         if pet_data is None:
             with allure.step("Test response with empty body"):
                 assert pet.status_code == 415
@@ -52,13 +68,16 @@ class TestAPI:
     @allure.tag("put", "pets")
     @pytest.mark.parametrize("status", ["sold", "lost"])
     def test_change_pet(self, status, pet_data):
+
         pet_data["status"] = status
+
         pet = requests.put(self.url + "/pet", json=pet_data)
-        if pet_data["status"] == "sold" or pet_data["status"] == "pending" or pet_data["status"] == "available":
+        if pet_data["status"] in ["sold", "pending", "available"]:
             with allure.step("Test response with changing object with correct data"):
                 assert pet.status_code == 200
         else:
             with allure.step("Test response with changing missing object"):
+                Status.check_status(pet_data["status"])  # Validate status
                 assert pet.status_code == 405
 
     @allure.title("Test change incorrect object")
@@ -85,7 +104,7 @@ class TestAPI:
                         "- поискать животное в статусе lost 400")
     @pytest.mark.parametrize("status", [('sold'), ('lost')])
     def test_get_status(self, status):
-        pet = requests.get(f"https://petstore.swagger.io/v2/pet/findByStatus?status={status}")
+        pet = requests.get(self.url + f"/pet/findByStatus?status={status}")
         if status == 'lost':
             with allure.step(f"Test response with invalid status:{status}"):
                 assert pet.status_code == 400
@@ -103,15 +122,14 @@ class TestAPI:
     def test_delete_pet(self, id, pet_data):
         if type(id) is not int:
             with allure.step(f"Test responce with invalid id:{id}"):
-                pet = requests.delete(f"https://petstore.swagger.io/v2/pet/{id}")
+                pet = requests.delete(self.url + f"/pet/{id}")
                 assert pet.status_code == 400
         else:
             with allure.step(f"Create pet in the store with id:{id} for deleting"):
                 requests.post(self.url + "/pet", json=pet_data)
             with allure.step(f"Test delete pet with id:{id}"):
-                pet = requests.delete(f"https://petstore.swagger.io/v2/pet/{id}")
+                pet = requests.delete(self.url + f"/pet/{id}")
                 assert pet.status_code == 200
             with allure.step(f"Test delete non-exist object"):
-                pet = requests.delete(f"https://petstore.swagger.io/v2/pet/{id}")
+                pet = requests.delete(self.url + f"/pet/{id}")
                 assert pet.status_code == 404
-
